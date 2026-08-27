@@ -10,12 +10,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "scenario:chat": "node --import ./dist/telemetry.js dist/run-scenario.js chat",
-    "scenario:streaming": "node --import ./dist/telemetry.js dist/run-scenario.js streaming",
-    "scenario:embeddings": "node --import ./dist/telemetry.js dist/run-scenario.js embeddings",
-    "scenario:tools": "node --import ./dist/telemetry.js dist/run-scenario.js tools",
-    "scenario:error": "node --import ./dist/telemetry.js dist/run-scenario.js error",
-    "scenario:all": "node --import ./dist/telemetry.js dist/run-scenario.js all"
+    "start": "node --import ./dist/telemetry.js dist/run-scenario.js"
   },
   "author": "",
   "license": "Apache-2.0",

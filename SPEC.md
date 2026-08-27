@@ -4,7 +4,7 @@
 
 A small example application demonstrating **automatic OpenTelemetry instrumentation** of the OpenAI Node SDK using `@opentelemetry/instrumentation-openai`, with traces exported via OTLP to Honeycomb. The app is a documentation/demo artifact, not a production service: its job is to show, with minimal manual tracing code, what GenAI semantic-convention spans look like for several distinct OpenAI API call shapes.
 
-Non-goals: no persistent or externally-reachable HTTP server, no persistence layer, no UI. Nothing beyond running each scenario script and inspecting the resulting trace. (The tool-calling scenario does start a tiny, loopback-only, in-process Express server for the duration of that one scenario — see Project Structure — solely so its tool call is a real HTTP request the HTTP/Express instrumentation can pick up. That's the one deliberate exception; it isn't a service.)
+Non-goals: no persistent or externally-reachable HTTP server, no persistence layer, no UI. Nothing beyond running `npm start` and inspecting the resulting trace. (The tool-calling scenario does start a tiny, loopback-only, in-process Express server for the duration of that one scenario — see Project Structure — solely so its tool call is a real HTTP request the HTTP/Express instrumentation can pick up. That's the one deliberate exception; it isn't a service.)
 
 ## Assumptions
 
@@ -23,21 +23,17 @@ Non-goals: no persistent or externally-reachable HTTP server, no persistence lay
 | `npm run build` | Compile TypeScript (`tsc`) to `dist/` |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Run smoke tests (Vitest) against in-memory span exporter |
-| `npm run scenario:chat` | Run the basic chat completion scenario |
-| `npm run scenario:streaming` | Run the streaming chat completion scenario |
-| `npm run scenario:embeddings` | Run the embeddings scenario |
-| `npm run scenario:tools` | Run the tool/function-calling scenario |
-| `npm run scenario:error` | Run the deliberate error-case scenario |
+| `npm start` | Run all five scenarios (chat, streaming, embeddings, tool-calling, error-case) in sequence, as one connected trace |
 
-Each `scenario:*` script requires `OPENAI_API_KEY` and `HONEYCOMB_API_KEY` to be set (via `.env`, loaded through `dotenv`). **Before running any `scenario:*` command, ask for explicit confirmation** — these make real, billable OpenAI API calls and send real trace data to Honeycomb.
+The `start` script requires `OPENAI_API_KEY` and `HONEYCOMB_API_KEY` to be set (via `.env`, loaded through `dotenv`). **Before running `npm start`, ask for explicit confirmation** — it makes real, billable OpenAI API calls and sends real trace data to Honeycomb.
 
-Every `scenario:*` script invokes `node` with `--import`, preloading compiled telemetry setup (which calls `register()` itself — see Assumptions #1) before any scenario code, and therefore before `openai` itself, is imported:
+The `start` script invokes `node` with `--import`, preloading compiled telemetry setup (which calls `register()` itself — see Assumptions #1) before any scenario code, and therefore before `openai` itself, is imported:
 
 ```bash
-node --import ./dist/telemetry.js dist/run-scenario.js <scenario-name>
+node --import ./dist/telemetry.js dist/run-scenario.js
 ```
 
-e.g. `"scenario:chat": "node --import ./dist/telemetry.js dist/run-scenario.js chat"`.
+i.e. `"start": "node --import ./dist/telemetry.js dist/run-scenario.js"`.
 
 ## Project Structure
 
@@ -54,7 +50,7 @@ e.g. `"scenario:chat": "node --import ./dist/telemetry.js dist/run-scenario.js c
 │   ├── telemetry.ts          # NodeSDK setup: instrumentation registration + OTLP export to Honeycomb
 │   ├── otel/                 # cross-cutting OTel helpers shared by every scenario (see README)
 │   ├── scenarios/            # one file per OpenAI API call shape, plus all.ts
-│   └── run-scenario.ts       # thin CLI entry: dispatches to the requested scenario by name
+│   └── run-scenario.ts       # thin CLI entry: runs all scenarios via scenarios/all.ts
 └── test/
     ├── support/               # test-only fixtures (e.g. a local http server standing in for the OpenAI API)
     └── scenarios/ + otel/     # smoke tests, one per scenario + one per otel/ helper
@@ -78,7 +74,7 @@ Smoke tests only (Vitest), scenario **logic** only — no span/instrumentation a
 
 - **Do not `vi.mock('openai')`.** Vitest's module mocking substitutes a mock before Node's real module-loading pipeline ever runs, so ESM loader-hook-based patching never sees a real load event to intercept — a test built on `vi.mock('openai')` would only assert facts about a mock object, proving nothing about whether the real auto-instrumentation works.
 - Instead: import the **real** `openai` module in tests and fake only the HTTP transport via a local `http.createServer` fixture server (`test/support/fixture-server.ts`), pointing the client at it via the `OPENAI_BASE_URL` env var (which the `openai` SDK reads natively) — no changes needed to scenario source to make it testable. No new dependency required.
-- **Real OTel auto-instrumentation is not verified in the automated test suite at all**, and this is a deliberate, verified conclusion, not an oversight: `import-in-the-middle`-based patching is confirmed working in a plain `node` process, but confirmed **not** intercepting inside Vitest via two independent mechanisms — a programmatic `register()` call in a `setupFiles` module, and passing `--experimental-loader` through Vitest's `execArgv` (verified reaching the forked process via its own experimental-warning output) — both produced zero captured spans. This points to Vitest's own module runner not routing dependency imports through Node's native ESM loader chain, a structural incompatibility rather than a config problem. Real instrumentation is verified exclusively by actually running a `scenario:*` script (ask-first, per Commands) and checking the console/Honeycomb output.
+- **Real OTel auto-instrumentation is not verified in the automated test suite at all**, and this is a deliberate, verified conclusion, not an oversight: `import-in-the-middle`-based patching is confirmed working in a plain `node` process, but confirmed **not** intercepting inside Vitest via two independent mechanisms — a programmatic `register()` call in a `setupFiles` module, and passing `--experimental-loader` through Vitest's `execArgv` (verified reaching the forked process via its own experimental-warning output) — both produced zero captured spans. This points to Vitest's own module runner not routing dependency imports through Node's native ESM loader chain, a structural incompatibility rather than a config problem. Real instrumentation is verified exclusively by actually running `npm start` (ask-first, per Commands) and checking the console/Honeycomb output.
 - Each scenario's smoke test asserts on **fixture-server-observed request shape** (correct path, model, message/parameter structure) — i.e. that the scenario calls the OpenAI API correctly and handles the response — not on telemetry output.
 - No integration test against the real OpenAI API — scenario scripts themselves serve as the manual/opt-in integration and instrumentation check (per the confirm-before-running rule above).
 
@@ -87,12 +83,12 @@ Smoke tests only (Vitest), scenario **logic** only — no span/instrumentation a
 **Always do:**
 
 - Load `OPENAI_API_KEY` and `HONEYCOMB_API_KEY` from a git-ignored `.env` file (via `dotenv`); commit only `.env.example` with placeholder values.
-- Keep every `scenario:*` npm script invoking `node --import ./dist/telemetry.js` — never add a scenario runner that skips it or relies on in-code import ordering instead.
+- Keep the `start` script invoking `node --import ./dist/telemetry.js` — never add a scenario runner that skips it or relies on in-code import ordering instead.
 - Add a corresponding smoke test when adding a new scenario file.
 
 **Ask first about:**
 
-- Running any `scenario:*` command (real OpenAI API call + real Honeycomb export — costs money and sends live data).
+- Running `npm start` (real OpenAI API calls + real Honeycomb export — costs money and sends live data).
 - Adding new dependencies beyond `openai`, `@opentelemetry/*` packages, `express` (used only for the in-process demo server described in Non-goals), `dotenv`, and the test runner.
 - Changing the OTLP endpoint or exporter configuration (e.g. switching to console exporter, changing Honeycomb region).
 

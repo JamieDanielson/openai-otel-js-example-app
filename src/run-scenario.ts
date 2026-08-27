@@ -1,32 +1,10 @@
-import { run as chat } from './scenarios/chat.js';
-import { run as streaming } from './scenarios/streaming.js';
-import { run as embeddings } from './scenarios/embeddings.js';
-import { run as toolCalling } from './scenarios/tool-calling.js';
-import { run as errorCase } from './scenarios/error-case.js';
-import { run as all } from './scenarios/all.js';
+import { run } from './scenarios/all.js';
 import { withNewConversation } from './otel/conversation-context.js';
 
-const scenarios: Record<string, () => Promise<void>> = {
-  chat,
-  streaming,
-  embeddings,
-  tools: toolCalling,
-  error: errorCase,
-  all,
-};
-
-const name = process.argv[2];
-const scenario = name ? scenarios[name] : undefined;
-
-if (!scenario) {
-  console.error(`Unknown scenario "${name}". Available: ${Object.keys(scenarios).join(', ')}`);
-  process.exit(1);
-}
-
 try {
-  // One conversation id per invocation, so every span this scenario produces
-  // — including auto-instrumented ones — carries the same gen_ai.conversation.id.
-  await withNewConversation(() => scenario());
+  // One conversation id per run, so every span this produces — including
+  // auto-instrumented ones — carries the same gen_ai.conversation.id.
+  await withNewConversation(() => run());
 } catch (err) {
   // Top-level await rejections in an ESM entry module bypass the
   // 'unhandledRejection' event entirely, so this catch is the only
