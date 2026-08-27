@@ -1,0 +1,44 @@
+{
+  "name": "openai-otel-js-example-app",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": "^18.19.0 || >=20.6.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "scenario:chat": "node --import ./dist/telemetry.js dist/run-scenario.js chat",
+    "scenario:streaming": "node --import ./dist/telemetry.js dist/run-scenario.js streaming",
+    "scenario:embeddings": "node --import ./dist/telemetry.js dist/run-scenario.js embeddings",
+    "scenario:tools": "node --import ./dist/telemetry.js dist/run-scenario.js tools",
+    "scenario:error": "node --import ./dist/telemetry.js dist/run-scenario.js error",
+    "scenario:all": "node --import ./dist/telemetry.js dist/run-scenario.js all"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "Example app demonstrating OpenTelemetry auto-instrumentation of the OpenAI Node SDK, with traces exported to Honeycomb.",
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.221.0",
+    "@opentelemetry/instrumentation": "^0.221.0",
+    "@opentelemetry/instrumentation-express": "^0.69.0",
+    "@opentelemetry/instrumentation-http": "^0.221.0",
+    "@opentelemetry/instrumentation-openai": "^0.19.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-node": "^0.221.0",
+    "@opentelemetry/sdk-trace-base": "^2.10.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "openai": "^6.49.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.3.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  }
+}
